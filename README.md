@@ -1,4 +1,4 @@
-# llama.cpp-hip-mtp
+# llama.cpp-hip-gemma4-mtp
 
 Arch Linux PKGBUILD for llama.cpp with AMD ROCm/HIP optimizations,
 patched with [PR #23398](https://github.com/ggml-org/llama.cpp/pull/23398)
