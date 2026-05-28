@@ -1,0 +1,24 @@
+# Build artifacts
+pkg/
+src/
+
+# Downloaded sources
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.zip
+
+# Arch package files
+*.pkg.tar.zst
+*.pkg.tar.xz
+*.log
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+*~
+.nfs*
+
+# makepkg
+*.part
