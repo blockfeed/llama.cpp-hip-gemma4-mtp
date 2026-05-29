@@ -4,6 +4,7 @@
 
 pkgname=llama.cpp-hip-mtp
 _pkgname="${pkgname%-mtp}"
+_srcname="llama.cpp"
 pkgver=b9378
 pkgrel=1
 pkgdesc="llama.cpp with AMD ROCm optimizations + Gemma 4 MTP (PR #23398)"
@@ -51,7 +52,7 @@ sha256sums=('9e426b02100e0f473c59165bb154fac06b0a67e4718279d94ebddeccd5eaab2d'
             'e4856f186f69cd5dbfcc4edec9f6b6bd08e923bceedd8622eeae1a2595beb2ec')
 
 prepare() {
-  ln -sf "${_pkgname}-${pkgver}" llama.cpp
+  ln -sf "${_srcname}-${pkgver}" llama.cpp
 
   # Tailwind v4's oxide scanner walks up looking for the nearest .git to anchor
   # .gitignore lookup. In AUR helpers the parent .git is the AUR clone, whose
@@ -59,18 +60,18 @@ prepare() {
   # tools/ui/src/lib/**/*.svelte, so Tailwind scans zero files and the built
   # bundle.css ships without any utility classes. An empty .git in the extracted
   # source tree stops the upward walk before that point.
-  mkdir -p "${_pkgname}/.git"
+  mkdir -p "${_srcname}-${pkgver}/.git"
 
   # Apply PR #23398: Gemma 4 MTP support
   # Adds GEMMA4_ASSISTANT architecture, MTP speculative decoding,
   # KV cache sharing, and draft model support.
-  cd "${_pkgname}"
+  cd "${_srcname}-${pkgver}"
   patch -p1 -i "${srcdir}/gemma4-mtp-23398.patch"
 }
 
 build() {
   # Build the Web UI from source
-  pushd "${_pkgname}/tools/ui"
+  pushd "${_srcname}-${pkgver}/tools/ui"
   npm ci
   npm run build
   popd
@@ -85,7 +86,7 @@ build() {
 
   local _cmake_options=(
     -B build
-    -S "${_pkgname}"
+    -S "${_srcname}-${pkgver}"
     -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_INSTALL_PREFIX='/usr'
     -DCMAKE_HIP_FLAGS="-mllvm --amdgpu-unroll-threshold-local=600"
@@ -142,7 +143,7 @@ build() {
 package() {
   DESTDIR="${pkgdir}" cmake --install build
 
-  install -Dm644 "${_pkgname}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${_srcname}-${pkgver}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install -Dm644 "llama.cpp-hip.conf" "${pkgdir}/etc/conf.d/llama.cpp"
   install -Dm644 "llama.cpp-hip.service" "${pkgdir}/usr/lib/systemd/system/llama.cpp.service"
 }
