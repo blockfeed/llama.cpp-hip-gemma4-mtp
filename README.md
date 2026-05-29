@@ -20,6 +20,8 @@ by Orion-zhen.
 
 **Arch Linux only.**
 
+**License:** GPLv3. See [LICENSE](LICENSE). The upstream `llama.cpp` is MIT-licensed; this PKGBUILD/patch collection is distributed under GPLv3.
+
 **Dependencies:** `hip-runtime-amd`, `hipblas`, `rocblas`, `rocm-hip-sdk`.
 
 **CI targets:** gfx906, gfx1010, gfx1030, gfx1031, gfx1100, gfx1101, gfx1102,
