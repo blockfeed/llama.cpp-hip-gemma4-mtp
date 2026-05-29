@@ -1,13 +1,19 @@
 # Maintainer: blockfeed
 # Based on AUR llama.cpp-hip by Orion-zhen
 # Adds PR #23398: Gemma 4 MTP support (github.com/ggml-org/llama.cpp/pull/23398)
+#
+# Binary-only addon for llama.cpp-hip. Installs llama-server + runtime libs
+# to /opt/llama.cpp-gemma4-mtp/. Use as llama-swap's llama_server_path for
+# Gemma 4 MTP model slots. Coexists with main llama.cpp-hip package.
+#
+# KNOWN BUG: Qwen models with --spec-type draft-mtp (no --model-draft) crash
+# at GGML_ASSERT(sched) in memory_breakdown(). Only Gemma 4 models work.
 
-pkgname=llama.cpp-hip-mtp
-_pkgname="${pkgname%-mtp}"
+pkgname=llama.cpp-hip-gemma4-mtp
 _srcname="llama.cpp"
 pkgver=b9378
-pkgrel=1
-pkgdesc="llama.cpp with AMD ROCm optimizations + Gemma 4 MTP (PR #23398)"
+pkgrel=2
+pkgdesc="Gemma 4 MTP llama-server addon for llama.cpp-hip (PR #23398) — llama-swap companion"
 arch=(x86_64)
 url='https://github.com/ggml-org/llama.cpp'
 license=('GPL3')
@@ -18,38 +24,20 @@ depends=(
   hip-runtime-amd
   hipblas
   openmp
-  python
   rocblas
 )
 makedepends=(
   cmake
   git
-  nodejs
-  npm
   rocm-hip-sdk
 )
-optdepends=(
-  'python-numpy: needed for convert_hf_to_gguf.py'
-  'python-safetensors: needed for convert_hf_to_gguf.py'
-  'python-sentencepiece: needed for convert_hf_to_gguf.py'
-  'python-pytorch: needed for convert_hf_to_gguf.py'
-  'python-transformers: needed for convert_hf_to_gguf.py'
-  'python-gguf: needed for convert_hf_to_gguf.py'
-)
-provides=(${_pkgname} libggml libggml-hip.so ggml)
-conflicts=(${_pkgname} libggml ggml stable-diffusion.cpp)
 options=(lto !debug)
-backup=("etc/conf.d/llama.cpp")
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/ggml-org/llama.cpp/archive/refs/tags/${pkgver}.tar.gz"
   "gemma4-mtp-23398.patch"
-  "llama.cpp-hip.service"
-  "llama.cpp-hip.conf"
 )
 sha256sums=('9e426b02100e0f473c59165bb154fac06b0a67e4718279d94ebddeccd5eaab2d'
-            '85f306c876883e26f3be4ad6b8ef911540bc70e3160798a8d8bebcf346181eff'
-            '0377d08a07bda056785981d3352ccd2dbc0387c4836f91fb73e6b790d836620d'
-            'e4856f186f69cd5dbfcc4edec9f6b6bd08e923bceedd8622eeae1a2595beb2ec')
+            '85f306c876883e26f3be4ad6b8ef911540bc70e3160798a8d8bebcf346181eff')
 
 prepare() {
   ln -sf "${_srcname}-${pkgver}" llama.cpp
@@ -70,12 +58,6 @@ prepare() {
 }
 
 build() {
-  # Build the Web UI from source
-  pushd "${_srcname}-${pkgver}/tools/ui"
-  npm ci
-  npm run build
-  popd
-
   # Source ROCm profile if not already set
   if [[ -z "${ROCM_PATH}" ]]; then
     source /etc/profile
@@ -88,12 +70,13 @@ build() {
     -B build
     -S "${_srcname}-${pkgver}"
     -DCMAKE_BUILD_TYPE=Release
-    -DCMAKE_INSTALL_PREFIX='/usr'
+    -DCMAKE_INSTALL_PREFIX='/opt/llama.cpp-gemma4-mtp'
+    -DCMAKE_INSTALL_RPATH='/opt/llama.cpp-gemma4-mtp/lib'
     -DCMAKE_HIP_FLAGS="-mllvm --amdgpu-unroll-threshold-local=600"
     -DBUILD_SHARED_LIBS=ON
     -DLLAMA_BUILD_TESTS=OFF
     -DLLAMA_USE_SYSTEM_GGML=OFF
-    -DLLAMA_BUILD_UI=ON
+    -DLLAMA_BUILD_UI=OFF
     -DGGML_ALL_WARNINGS=OFF
     -DGGML_ALL_WARNINGS_3RD_PARTY=OFF
     -DGGML_BUILD_EXAMPLES=OFF
@@ -143,7 +126,23 @@ build() {
 package() {
   DESTDIR="${pkgdir}" cmake --install build
 
-  install -Dm644 "${_srcname}-${pkgver}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
-  install -Dm644 "llama.cpp-hip.conf" "${pkgdir}/etc/conf.d/llama.cpp"
-  install -Dm644 "llama.cpp-hip.service" "${pkgdir}/usr/lib/systemd/system/llama.cpp.service"
+  cd "${pkgdir}/opt/llama.cpp-gemma4-mtp"
+
+  # Remove dev files (headers, cmake configs, pkgconfig)
+  rm -rf include
+  rm -rf share
+
+  # Remove all binaries except llama-server
+  find bin -type f ! -name 'llama-server' -delete
+  find bin -type l -delete
+
+  # Remove impl libs except the one llama-server loads at runtime
+  find lib -name '*-impl.so' ! -name 'libllama-server-impl.so' -delete
+
+  # Remove unversioned .so symlinks — keep only .so.X soname symlinks + versioned files
+  find lib -name '*.so' -type l ! -name '*.so.*' -delete
+
+  # Remove cmake and pkgconfig dirs (now empty)
+  rm -rf lib/cmake
+  rm -rf lib/pkgconfig
 }
